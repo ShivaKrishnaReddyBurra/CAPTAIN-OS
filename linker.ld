@@ -1,31 +1,28 @@
-OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(_start)
-
+OUTPUT_FORMAT(elf64-x86-64)  /* Explicitly specify 64-bit ELF output */
 SECTIONS {
     . = 0x100000; /* Kernel loaded at 1MB */
 
-    .text : ALIGN(4K) {
-        *(.multiboot)
-        *(.text)
+    /* Ensure the multiboot section is the very first thing in the binary */
+    .multiboot 0x100000 : {
+        KEEP(*(.multiboot))  /* Keep the multiboot section even if unused */
     }
 
-    .rodata : ALIGN(4K) {
-        *(.rodata)
+    /* Place the text section immediately after */
+    .text : {
+        *(.text*)
     }
 
-    .data : ALIGN(4K) {
+    /* Data section */
+    .data : {
         *(.data)
     }
 
-    .bss : ALIGN(4K) {
-        *(COMMON)
+    /* BSS section */
+    .bss : {
         *(.bss)
     }
 
-    /* Discard sections we don't need */
-    /DISCARD/ : {
-        *(.comment)
-        *(.eh_frame)
-        *(.note.GNU-stack)
-    }
+    /* Ensure the binary size is at least 32KB to include the multiboot header */
+    . = . + 0x8000;
 }
