@@ -1,9 +1,10 @@
 #include "idt.h"
 #include "vga.h"
 #include "utils.h"
+#include "task.h"
 
 // Shell state (defined in kernel.c)
-extern char input_buffer[80];  // Assuming MAX_INPUT is 80
+extern char input_buffer[80];
 extern int input_pos;
 extern void handle_command(void);
 
@@ -85,7 +86,7 @@ void keyboard_handler(void) {
                         print_char(' ', cursor_row, cursor_col);
                     }
                 }
-            } else if (input_pos < 80 - 1) {  // Assuming MAX_INPUT is 80
+            } else if (input_pos < 80 - 1) {
                 input_buffer[input_pos++] = c;
                 print_char(c, cursor_row, cursor_col);
                 cursor_col++;
@@ -133,13 +134,7 @@ void enable_keyboard(void) {
 }
 
 void timer_handler(void) {
-    static int timer_ticks = 0;
-    timer_ticks++;
-    
-    if (timer_ticks % 100 == 0) {
-        print_char('.', 0, 79);
-    }
-    
+    schedule();
     pic_send_eoi(0);
 }
 

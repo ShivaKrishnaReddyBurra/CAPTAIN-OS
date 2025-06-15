@@ -26,11 +26,17 @@ vga.o: kernel/vga.c
 utils.o: kernel/utils.c
 	$(CC) $(CFLAGS) kernel/utils.c -o build/utils.o
 
+pit.o: kernel/pit.c
+	$(CC) $(CFLAGS) kernel/pit.c -o build/pit.o
+
+task.o: kernel/task.c
+	$(CC) $(CFLAGS) kernel/task.c -o build/task.o
+
 isr.o: kernel/isr.asm
 	$(AS) $(ASF) kernel/isr.asm -o build/isr.o
 
-captainos.bin: boot.o kernel.o idt.o pic.o vga.o utils.o isr.o 
-	$(LD) $(LDFLAGS) -o build/captainos.bin build/boot.o build/kernel.o build/idt.o build/pic.o build/vga.o build/utils.o build/isr.o
+captainos.bin: boot.o kernel.o idt.o pic.o vga.o utils.o pit.o task.o isr.o 
+	$(LD) $(LDFLAGS) -o build/captainos.bin build/boot.o build/kernel.o build/idt.o build/pic.o build/vga.o build/utils.o build/pit.o build/task.o build/isr.o
 
 captainos.iso: captainos.bin
 	mkdir -p iso/boot/grub
