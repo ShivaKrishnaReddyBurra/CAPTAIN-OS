@@ -2,15 +2,14 @@
 #include "vga.h"
 #include "utils.h"
 
-// Simple scancode to ASCII mapping (for a few keys)
-
-// Replace the keyboard-related functions in idt.c with these corrected versions:
+// Shell state (defined in kernel.c)
+extern char input_buffer[80];  // Assuming MAX_INPUT is 80
+extern int input_pos;
+extern void handle_command(void);
 
 // Correct PS/2 keyboard scancode to ASCII mapping
 char scancode_to_ascii(uint8_t scancode) {
-    // PS/2 Keyboard Scancode Set 1 - only handle key press events (bit 7 = 0)
     switch (scancode) {
-        // Numbers row
         case 0x02: return '1';
         case 0x03: return '2';
         case 0x04: return '3';
@@ -23,8 +22,6 @@ char scancode_to_ascii(uint8_t scancode) {
         case 0x0B: return '0';
         case 0x0C: return '-';
         case 0x0D: return '=';
-        
-        // Top row (QWERTY)
         case 0x10: return 'q';
         case 0x11: return 'w';
         case 0x12: return 'e';
@@ -37,8 +34,6 @@ char scancode_to_ascii(uint8_t scancode) {
         case 0x19: return 'p';
         case 0x1A: return '[';
         case 0x1B: return ']';
-        
-        // Home row (ASDF)
         case 0x1E: return 'a';
         case 0x1F: return 's';
         case 0x20: return 'd';
@@ -51,8 +46,6 @@ char scancode_to_ascii(uint8_t scancode) {
         case 0x27: return ';';
         case 0x28: return '\'';
         case 0x29: return '`';
-        
-        // Bottom row (ZXCV)
         case 0x2C: return 'z';
         case 0x2D: return 'x';
         case 0x2E: return 'c';
@@ -64,46 +57,36 @@ char scancode_to_ascii(uint8_t scancode) {
         case 0x34: return '.';
         case 0x35: return '/';
         case 0x2B: return '\\';
-        
-        // Special keys
-        case 0x39: return ' ';    // Spacebar
-        case 0x1C: return '\n';   // Enter
-        case 0x0E: return '\b';   // Backspace
-        case 0x0F: return '\t';   // Tab
-        
-        default: return 0;        // Unknown key
+        case 0x39: return ' ';
+        case 0x1C: return '\n';
+        case 0x0E: return '\b';
+        case 0x0F: return '\t';
+        default: return 0;
     }
 }
 
-// Replace the keyboard_handler function in idt.c with this clean version:
-
 void keyboard_handler(void) {
-    // Read scancode from keyboard port
     uint8_t scancode = inb(0x60);
     
-    // Only handle key press events (bit 7 clear means key pressed)
-    // Ignore key release events (bit 7 set)
-    if (!(scancode & 0x80)) {
+    if (!(scancode & 0x80)) {  // Key press
         char c = scancode_to_ascii(scancode);
         if (c != 0) {
             if (c == '\n') {
-                cursor_row++;
-                cursor_col = 0;
-                if (cursor_row >= VGA_HEIGHT) {
-                    cursor_row = 0;
-                }
+                handle_command();
             } else if (c == '\b') {
-                // Backspace - move cursor back and clear character
-                if (cursor_col > 0) {
-                    cursor_col--;
-                    print_char(' ', cursor_row, cursor_col);
-                } else if (cursor_row > 0) {
-                    cursor_row--;
-                    cursor_col = VGA_WIDTH - 1;
-                    print_char(' ', cursor_row, cursor_col);
+                if (input_pos > 0) {
+                    input_pos--;
+                    if (cursor_col > 0) {
+                        cursor_col--;
+                        print_char(' ', cursor_row, cursor_col);
+                    } else if (cursor_row > 0) {
+                        cursor_row--;
+                        cursor_col = VGA_WIDTH - 1;
+                        print_char(' ', cursor_row, cursor_col);
+                    }
                 }
-            } else {
-                // Regular character - print it and advance cursor
+            } else if (input_pos < 80 - 1) {  // Assuming MAX_INPUT is 80
+                input_buffer[input_pos++] = c;
                 print_char(c, cursor_row, cursor_col);
                 cursor_col++;
                 if (cursor_col >= VGA_WIDTH) {
@@ -117,18 +100,14 @@ void keyboard_handler(void) {
         }
     }
     
-    // Always send EOI to acknowledge the interrupt
     pic_send_eoi(1);
 }
 
-// Also, simplify the enable_keyboard function to reduce startup messages:
 void enable_keyboard(void) {
-    // Clear keyboard buffer first
     while (inb(0x64) & 0x01) {
         inb(0x60);
     }
     
-    // Wait for keyboard controller to be ready
     int timeout = 10000;
     while ((inb(0x64) & 0x02) && timeout--) {
         // Wait for input buffer to be empty
@@ -139,10 +118,8 @@ void enable_keyboard(void) {
         return;
     }
     
-    // Enable keyboard scanning
     outb(0x60, 0xF4);
     
-    // Wait for ACK
     timeout = 10000;
     while (!(inb(0x64) & 0x01) && timeout--);
     if (timeout > 0) {
@@ -159,12 +136,11 @@ void timer_handler(void) {
     static int timer_ticks = 0;
     timer_ticks++;
     
-    // Print a dot every 100 timer ticks to show system is alive
     if (timer_ticks % 100 == 0) {
-        print_char('.', 0, 79);  // Print in top-right corner
+        print_char('.', 0, 79);
     }
     
-    pic_send_eoi(0);  // Timer is IRQ0
+    pic_send_eoi(0);
 }
 
 struct idt_entry idt[IDT_ENTRIES];
@@ -188,7 +164,6 @@ void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
 void exception_handler(void) {
     print_string("General Protection Fault!\n");
     
-    // Get error code from stack (if available)
     uint64_t error_code;
     __asm__ volatile("mov 8(%%rbp), %0" : "=r"(error_code));
     
@@ -209,35 +184,15 @@ void idt_init(void) {
     idt_p.limit = sizeof(struct idt_entry) * IDT_ENTRIES - 1;
     idt_p.base = (uint64_t)&idt;
 
-    // Clear all IDT entries
     for (int i = 0; i < IDT_ENTRIES; i++) {
         idt_set_gate(i, 0, 0, 0);
     }
 
-    // Set up exception handlers
-    idt_set_gate(0, (uint64_t)exception_isr, 0x08, 0x8E);   // Divide by zero
-    idt_set_gate(13, (uint64_t)exception_isr, 0x08, 0x8E);  // General protection fault
-    idt_set_gate(14, (uint64_t)exception_isr, 0x08, 0x8E);  // Page fault
+    idt_set_gate(0, (uint64_t)exception_isr, 0x08, 0x8E);
+    idt_set_gate(13, (uint64_t)exception_isr, 0x08, 0x8E);
+    idt_set_gate(14, (uint64_t)exception_isr, 0x08, 0x8E);
+    idt_set_gate(0x20, (uint64_t)timer_isr, 0x08, 0x8E);
+    idt_set_gate(0x21, (uint64_t)keyboard_isr, 0x08, 0x8E);
 
-    // Set up hardware interrupts
-    idt_set_gate(0x20, (uint64_t)timer_isr, 0x08, 0x8E);    // Timer (IRQ0 -> INT 0x20)
-    idt_set_gate(0x21, (uint64_t)keyboard_isr, 0x08, 0x8E); // Keyboard (IRQ1 -> INT 0x21)
-
-    // Debug: Print addresses
-    char buffer[16];
-    itoa((uint64_t)keyboard_isr, buffer, 16);
-
-    uint64_t offset = ((uint64_t)idt[0x21].offset_high << 32) | 
-                      ((uint64_t)idt[0x21].offset_mid << 16) | 
-                      idt[0x21].offset_low;
-    itoa(offset, buffer, 16);
-
-    // Load IDT
     load_idt((uint64_t)&idt_p);
-
-    itoa(idt_p.base, buffer, 16);
-
- 
-    itoa(idt_p.limit, buffer, 16);
-
 }

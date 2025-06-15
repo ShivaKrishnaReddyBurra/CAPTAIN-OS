@@ -27,8 +27,6 @@ void pic_remap(void) {
     uint8_t pic1_mask = inb(PIC1_DATA);
     uint8_t pic2_mask = inb(PIC2_DATA);
 
-    char buffer[16];
-    itoa(pic1_mask, buffer, 16);
     // Start initialization sequence
     outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
     outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -45,15 +43,9 @@ void pic_remap(void) {
     outb(PIC1_DATA, ICW4_8086);
     outb(PIC2_DATA, ICW4_8086);
 
-    // Mask all interrupts except keyboard (IRQ1) and cascade (IRQ2)
+    // Mask all interrupts except timer (IRQ0) and keyboard (IRQ1)
     outb(PIC1_DATA, 0xFC);  // Enable IRQ0 (timer) and IRQ1 (keyboard) only
     outb(PIC2_DATA, 0xFF);  // Disable all IRQ8-15
-
-    itoa(inb(PIC1_DATA), buffer, 16);
-
-
-    itoa(inb(PIC2_DATA), buffer, 16);
-    
 }
 
 void pic_send_eoi(uint8_t irq) {
