@@ -63,9 +63,18 @@ bits 64                          ; Switch to 64-bit mode for this section
 higher_half:
     ; Now in 64-bit mode
     mov rsp, stack_top           ; Use 64-bit stack pointer
+    lgdt [gdt_descriptor]        ; Reload GDT in 64-bit mode
+
+    ; Reload segment registers
+    mov ax, 0x10                 ; Data segment selector
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
     call kernel_main             ; Call kernel
     hlt                          ; Halt CPU if kernel returns
-
 section .data
 align 16
 gdt:
@@ -78,7 +87,7 @@ gdt:
 
 gdt_descriptor:
     dw gdt_end - gdt - 1         ; GDT size
-    dd gdt                       ; GDT address (32-bit address for lgdt in 32-bit mode)
+    dq gdt                       ; GDT address (64-bit address for 64-bit mode)
 
 ; Minimal paging structures (identity map the first 2MB)
 align 4096
