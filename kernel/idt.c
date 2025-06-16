@@ -8,6 +8,9 @@ extern char input_buffer[80];
 extern int input_pos;
 extern void handle_command(void);
 
+// Timer counter for less frequent task switching
+static uint32_t timer_ticks = 0;
+
 // Correct PS/2 keyboard scancode to ASCII mapping
 char scancode_to_ascii(uint8_t scancode) {
     switch (scancode) {
@@ -69,14 +72,16 @@ char scancode_to_ascii(uint8_t scancode) {
 void keyboard_handler(void) {
     uint8_t scancode = inb(0x60);
     
-    if (!(scancode & 0x80)) {  // Key press
+    if (!(scancode & 0x80)) {  // Key press (not key release)
         char c = scancode_to_ascii(scancode);
         if (c != 0) {
             if (c == '\n') {
+                print_string("\n");
                 handle_command();
             } else if (c == '\b') {
                 if (input_pos > 0) {
                     input_pos--;
+                    // Simple backspace handling
                     if (cursor_col > 0) {
                         cursor_col--;
                         print_char(' ', cursor_row, cursor_col);
@@ -86,7 +91,7 @@ void keyboard_handler(void) {
                         print_char(' ', cursor_row, cursor_col);
                     }
                 }
-            } else if (input_pos < 80 - 1) {
+            } else if (input_pos < 79) {  // Leave space for null terminator
                 input_buffer[input_pos++] = c;
                 print_char(c, cursor_row, cursor_col);
                 cursor_col++;
@@ -101,41 +106,54 @@ void keyboard_handler(void) {
         }
     }
     
-    pic_send_eoi(1);
+    pic_send_eoi(1);  // Send End of Interrupt to PIC
 }
 
 void enable_keyboard(void) {
+    // Clear any pending keyboard data
     while (inb(0x64) & 0x01) {
         inb(0x60);
     }
     
+    // Wait for keyboard controller to be ready
     int timeout = 10000;
     while ((inb(0x64) & 0x02) && timeout--) {
         // Wait for input buffer to be empty
     }
     
     if (timeout <= 0) {
-        print_string("Keyboard timeout!\n");
+        print_string("Keyboard timeout during init!\n");
         return;
     }
     
+    // Enable keyboard
     outb(0x60, 0xF4);
     
+    // Wait for acknowledgment
     timeout = 10000;
     while (!(inb(0x64) & 0x01) && timeout--);
+    
     if (timeout > 0) {
         uint8_t ack = inb(0x60);
         if (ack == 0xFA) {
-            print_string("Keyboard ready.\n");
+            // Keyboard is ready
         } else {
-            print_string("Keyboard error.\n");
+            print_string("Keyboard initialization error.\n");
         }
+    } else {
+        print_string("Keyboard timeout waiting for ACK!\n");
     }
 }
 
 void timer_handler(void) {
-    schedule();
-    pic_send_eoi(0);
+    timer_ticks++;
+    
+    // Only call scheduler every few timer ticks to prevent too frequent task switching
+    if (timer_ticks % 5 == 0) {  // Adjust this value to control task switching frequency
+        schedule();
+    }
+    
+    pic_send_eoi(0);  // Send End of Interrupt to PIC
 }
 
 struct idt_entry idt[IDT_ENTRIES];
@@ -157,37 +175,55 @@ void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
 }
 
 void exception_handler(void) {
-    print_string("General Protection Fault!\n");
+    print_string("\n*** EXCEPTION OCCURRED ***\n");
+    print_string("System encountered an exception!\n");
     
-    uint64_t error_code;
-    __asm__ volatile("mov 8(%%rbp), %0" : "=r"(error_code));
+    // Try to get error code from stack
+    uint64_t error_code = 0;
+    __asm__ volatile("mov %%rbp, %%rax; add $16, %%rax; mov (%%rax), %0" : "=r"(error_code) : : "rax");
     
-    char buffer[16];
-    print_string("Error code: ");
+    char buffer[20];
+    print_string("Error code: 0x");
     itoa(error_code, buffer, 16);
     print_string(buffer);
     print_string("\n");
     
-    print_string("System halted.\n");
+    print_string("Current task: ");
+    if (current_task) {
+        itoa(current_task->id, buffer, 10);
+        print_string(buffer);
+    } else {
+        print_string("None");
+    }
+    print_string("\n");
     
+    print_string("System halted. Press Ctrl+Alt+Del to restart.\n");
+    
+    // Halt the system
     while (1) {
         __asm__ volatile("cli; hlt");
     }
 }
 
 void idt_init(void) {
+    // Set up IDT pointer
     idt_p.limit = sizeof(struct idt_entry) * IDT_ENTRIES - 1;
     idt_p.base = (uint64_t)&idt;
 
+    // Clear all IDT entries
     for (int i = 0; i < IDT_ENTRIES; i++) {
         idt_set_gate(i, 0, 0, 0);
     }
 
-    idt_set_gate(0, (uint64_t)exception_isr, 0x08, 0x8E);
-    idt_set_gate(13, (uint64_t)exception_isr, 0x08, 0x8E);
-    idt_set_gate(14, (uint64_t)exception_isr, 0x08, 0x8E);
-    idt_set_gate(0x20, (uint64_t)timer_isr, 0x08, 0x8E);
-    idt_set_gate(0x21, (uint64_t)keyboard_isr, 0x08, 0x8E);
+    // Set up exception handlers
+    idt_set_gate(0, (uint64_t)exception_isr, 0x08, 0x8E);   // Divide by zero
+    idt_set_gate(13, (uint64_t)exception_isr, 0x08, 0x8E);  // General protection fault
+    idt_set_gate(14, (uint64_t)exception_isr, 0x08, 0x8E);  // Page fault
+    
+    // Set up interrupt handlers
+    idt_set_gate(0x20, (uint64_t)timer_isr, 0x08, 0x8E);    // Timer interrupt (IRQ 0)
+    idt_set_gate(0x21, (uint64_t)keyboard_isr, 0x08, 0x8E); // Keyboard interrupt (IRQ 1)
 
+    // Load the IDT
     load_idt((uint64_t)&idt_p);
 }

@@ -3,31 +3,36 @@
 
 #include <stdint.h>
 
-#define MAX_TASKS 10
-#define TASK_STACK_SIZE 4096  // 4KB stack per task
+#define MAX_TASKS 8
+#define TASK_STACK_SIZE 8192  // 8KB stack per task
 
 // Task states
-enum task_state {
-    TASK_RUNNING,
+typedef enum {
     TASK_READY,
-    TASK_BLOCKED
-};
+    TASK_RUNNING,
+    TASK_BLOCKED,
+    TASK_TERMINATED
+} task_state_t;
 
-// Task Control Block (TCB)
+// Task structure
 struct task {
-    uint64_t rsp;              // Stack pointer (saved during context switch)
-    uint64_t stack[TASK_STACK_SIZE / 8];  // Task stack (4KB, aligned to 8 bytes)
-    enum task_state state;     // Task state
-    void (*entry)(void);       // Task entry point
-    uint32_t id;               // Task ID
+    uint32_t id;
+    task_state_t state;
+    void (*entry)(void);
+    uint64_t rsp;                           // Stack pointer
+    uint8_t stack[TASK_STACK_SIZE];        // Task stack
 };
 
+// External declarations
 extern struct task *current_task;
 extern struct task tasks[MAX_TASKS];
 extern int num_tasks;
 
+// Function prototypes
 void task_init(void);
-void schedule(void);
 void task_create(void (*entry)(void));
+void schedule(void);
+void task_yield(void);
+void task_sleep(uint32_t ticks);
 
 #endif
