@@ -7,7 +7,7 @@ load_idt:
     lidt [rax]
     ret
 
-; Improved task switching with proper register preservation and stack handling
+; Fixed task switching with proper register preservation and stack handling
 global simple_switch_task
 simple_switch_task:
     ; Parameters:
@@ -48,7 +48,7 @@ simple_switch_task:
 global timer_isr
 extern timer_handler
 timer_isr:
-    ; Save all registers that might be used by C code
+    ; Save all registers
     push rax
     push rcx
     push rdx
@@ -58,8 +58,6 @@ timer_isr:
     push r9
     push r10
     push r11
-    
-    ; Save the caller-saved registers
     push rbx
     push rbp
     push r12
@@ -67,18 +65,8 @@ timer_isr:
     push r14
     push r15
     
-    ; Align stack to 16-byte boundary (required by x86-64 ABI)
-    mov rax, rsp
-    and rsp, -16
-    sub rsp, 8      ; Additional alignment
-    push rax        ; Save original RSP
-    
     ; Call the C handler
     call timer_handler
-    
-    ; Restore original RSP
-    pop rax
-    mov rsp, rax
     
     ; Restore all registers
     pop r15
@@ -103,7 +91,7 @@ timer_isr:
 global keyboard_isr
 extern keyboard_handler
 keyboard_isr:
-    ; Save all registers that might be used by C code
+    ; Save all registers
     push rax
     push rcx
     push rdx
@@ -113,8 +101,6 @@ keyboard_isr:
     push r9
     push r10
     push r11
-    
-    ; Save callee-saved registers too for safety
     push rbx
     push rbp
     push r12
@@ -122,18 +108,8 @@ keyboard_isr:
     push r14
     push r15
     
-    ; Align stack to 16-byte boundary
-    mov rax, rsp
-    and rsp, -16
-    sub rsp, 8      ; Additional alignment
-    push rax        ; Save original RSP
-    
     ; Call the C handler
     call keyboard_handler
-    
-    ; Restore original RSP
-    pop rax
-    mov rsp, rax
     
     ; Restore all registers
     pop r15
@@ -171,7 +147,6 @@ outb:
 global exception_isr
 extern exception_handler
 exception_isr:
-    ; For exceptions, we need to be more careful about stack state
     ; Save all registers
     push rax
     push rcx
@@ -189,20 +164,10 @@ exception_isr:
     push r14
     push r15
     
-    ; Align stack
-    mov rax, rsp
-    and rsp, -16
-    sub rsp, 8
-    push rax
-    
     ; Call exception handler
     call exception_handler
     
-    ; Restore stack (though we probably won't return from exception handler)
-    pop rax
-    mov rsp, rax
-    
-    ; Restore registers
+    ; Restore all registers (though we probably won't return)
     pop r15
     pop r14
     pop r13
