@@ -82,6 +82,7 @@ int is_in_critical_section(void) {
 void schedule(void) {
     if (num_tasks == 0) return;
     if (in_critical_section) return;
+    
     __asm__ volatile("cli");
 
     if (!scheduler_initialized) {
@@ -90,16 +91,10 @@ void schedule(void) {
             if (tasks[i].state == TASK_READY) {
                 current_task = &tasks[i];
                 current_task->state = TASK_RUNNING;
-                print_string("First task: ");
-                char buf[16];
-                itoa(current_task->id, buf, 10);
-                print_string(buf);
-                print_string("\n");
                 __asm__ volatile("sti");
                 return;
             }
         }
-        print_string("No ready tasks!\n");
         __asm__ volatile("sti");
         return;
     }
@@ -107,6 +102,7 @@ void schedule(void) {
     int start_id = current_task->id;
     int next_id = (start_id + 1) % num_tasks;
     struct task *next_task = NULL;
+    
     for (int i = 0; i < num_tasks; i++) {
         if (tasks[next_id].state == TASK_READY) {
             next_task = &tasks[next_id];
@@ -120,7 +116,6 @@ void schedule(void) {
             __asm__ volatile("sti");
             return;
         }
-        print_string("No ready tasks to switch to!\n");
         current_task = 0;
         __asm__ volatile("sti");
         return;
@@ -138,14 +133,22 @@ void schedule(void) {
     current_task = next_task;
     current_task->state = TASK_RUNNING;
 
-    print_string("Switching from task ");
-    char buf[16];
-    itoa(old_task->id, buf, 10);
-    print_string(buf);
-    print_string(" to task ");
-    itoa(current_task->id, buf, 10);
-    print_string(buf);
-    print_string(" (Shell:0, BG:1, Idle:2)\n");
+    // Remove verbose task switching messages - only print occasionally for debugging
+    static int switch_count = 0;
+    switch_count++;
+    // if (switch_count % 100 == 0) {  // Only print every 100th switch
+    //     char buffer[16];
+    //     print_string("\nTask switch ");
+    //     itoa(switch_count, buffer, 10);
+    //     print_string(buffer);
+    //     print_string(": ");
+    //     itoa(old_task->id, buffer, 10);
+    //     print_string(buffer);
+    //     print_string(" -> ");
+    //     itoa(current_task->id, buffer, 10);
+    //     print_string(buffer);
+    //     print_string("\n> ");
+    // }
 
     simple_switch_task(&old_task->rsp, current_task->rsp);
     __asm__ volatile("sti");
@@ -161,7 +164,7 @@ void task_yield(void) {
 void task_sleep(uint32_t ticks) {
     for (uint32_t i = 0; i < ticks; i++) {
         task_yield();
-        for (volatile int j = 0; j < 1000; j++);
+        for (volatile int j = 0; j < 10000; j++);  // Longer delay
     }
 }
 

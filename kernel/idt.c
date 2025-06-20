@@ -71,31 +71,33 @@ char scancode_to_ascii(uint8_t scancode) {
 }
 
 void keyboard_handler(void) {
-    enter_critical_section();
     uint8_t scancode = inb(0x60);
-    print_string("K");
+    
+    // Only process key press events (not key release)
     if (!(scancode & 0x80)) {
         char c = scancode_to_ascii(scancode);
         if (c != 0) {
-            print_string("C:");
-            print_char(c, cursor_row, cursor_col);
+            enter_critical_section();
+            
             if (c == '\n') {
-                print_string("\n");
+                print_char('\n', cursor_row, cursor_col);
+                cursor_row++;
+                cursor_col = 0;
+                if (cursor_row >= VGA_HEIGHT) {
+                    cursor_row = 0;
+                }
                 handle_command();
             } else if (c == '\b') {
                 if (input_pos > 0) {
                     input_pos--;
-                    if (cursor_col > 0) {
+                    if (cursor_col > 2) {  // Don't backspace over the "> " prompt
                         cursor_col--;
-                        print_char(' ', cursor_row, cursor_col);
-                    } else if (cursor_row > 0) {
-                        cursor_row--;
-                        cursor_col = VGA_WIDTH - 1;
                         print_char(' ', cursor_row, cursor_col);
                     }
                 }
             } else if (input_pos < 79) {
                 input_buffer[input_pos++] = c;
+                print_char(c, cursor_row, cursor_col);
                 cursor_col++;
                 if (cursor_col >= VGA_WIDTH) {
                     cursor_row++;
@@ -105,9 +107,11 @@ void keyboard_handler(void) {
                     }
                 }
             }
+            
+            exit_critical_section();
         }
     }
-    exit_critical_section();
+    
     pic_send_eoi(1);
 }
 
@@ -147,10 +151,12 @@ void enable_keyboard(void) {
 
 void timer_handler(void) {
     timer_ticks++;
-    print_string("T");
-    if (timer_ticks % 50 == 0) {
+    
+    // Only schedule every 200 ticks (2 seconds at 100Hz) to reduce task switching frequency
+    if (timer_ticks % 200 == 0) {
         schedule();
     }
+    
     pic_send_eoi(0);
 }
 
