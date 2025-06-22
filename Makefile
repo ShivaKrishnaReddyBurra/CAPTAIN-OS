@@ -47,29 +47,41 @@ captainos.iso: captainos.bin
 	cp grub/grub.cfg iso/boot/grub/
 	grub-mkrescue -o build/captainos.iso iso
 
-# Default run with graphics
+# Best graphics mode for most systems
 run: captainos.iso
-	$(QEMU) -cdrom build/captainos.iso -boot d -d int -no-reboot -no-shutdown -monitor stdio -k en-us -vga std -m 256M
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga std -m 512M -enable-kvm
 
-# Alternative run commands to try different graphics modes
+# Alternative graphics modes to try
 run-cirrus: captainos.iso
-	$(QEMU) -cdrom build/captainos.iso -boot d -d int -no-reboot -no-shutdown -monitor stdio -k en-us -vga cirrus -m 256M
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga cirrus -m 512M
 
 run-vmware: captainos.iso
-	$(QEMU) -cdrom build/captainos.iso -boot d -d int -no-reboot -no-shutdown -monitor stdio -k en-us -vga vmware -m 256M
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga vmware -m 512M
 
 run-qxl: captainos.iso
-	$(QEMU) -cdrom build/captainos.iso -boot d -d int -no-reboot -no-shutdown -monitor stdio -k en-us -vga qxl -m 256M
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga qxl -m 512M
+
+# Force VBE/VESA graphics mode
+run-vbe: captainos.iso
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga std -m 512M -device VGA,vgamem_mb=16
+
+# Run with better graphics support (recommended for your system)
+run-graphics: captainos.iso
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga cirrus -m 512M -display gtk
+
+# Run without KVM (if KVM causes issues)
+run-no-kvm: captainos.iso
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga std -m 512M
 
 # Run without graphics (text mode only)
 run-text: captainos.iso
-	$(QEMU) -cdrom build/captainos.iso -boot d -d int -no-reboot -no-shutdown -monitor stdio -k en-us -vga none -m 256M
+	$(QEMU) -cdrom build/captainos.iso -boot d -no-reboot -no-shutdown -monitor stdio -k en-us -vga none -m 512M
 
 # Debug run with more verbose output
 run-debug: captainos.iso
-	$(QEMU) -cdrom build/captainos.iso -boot d -d int,guest_errors -no-reboot -no-shutdown -monitor stdio -k en-us -vga std -m 256M -serial stdio
+	$(QEMU) -cdrom build/captainos.iso -boot d -d int,guest_errors -no-reboot -no-shutdown -monitor stdio -k en-us -vga std -m 512M -serial stdio
 
 clean:
 	rm -rf build/* iso/
 
-.PHONY: all run run-cirrus run-vmware run-qxl run-text run-debug clean
+.PHONY: all run run-cirrus run-vmware run-qxl run-vbe run-graphics run-no-kvm run-text run-debug clean

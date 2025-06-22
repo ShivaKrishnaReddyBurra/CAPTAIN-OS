@@ -5,5 +5,7 @@
 #include <stdint.h>
 
 void itoa(uint64_t val, char *buf, int base);
+void print_hex(uint64_t val);
+void print_dec(uint64_t val);
 
 #endif

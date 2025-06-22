@@ -1,5 +1,6 @@
 // utils.c
 #include "utils.h"
+#include "vga.h" // Assuming print_string is defined in vga.h
 
 void itoa(uint64_t val, char *buf, int base) {
     char *p = buf;
@@ -20,4 +21,17 @@ void itoa(uint64_t val, char *buf, int base) {
         *start++ = *end;
         *end-- = temp;
     }
+}
+
+void print_hex(uint64_t val) {
+    char buf[17]; // Enough for 64-bit hex (16 chars + null terminator)
+    itoa(val, buf, 16);
+    print_string("0x"); // Prefix with "0x" for hex
+    print_string(buf);
+}
+
+void print_dec(uint64_t val) {
+    char buf[21]; // Enough for 64-bit decimal (20 digits + null terminator)
+    itoa(val, buf, 10);
+    print_string(buf);
 }
