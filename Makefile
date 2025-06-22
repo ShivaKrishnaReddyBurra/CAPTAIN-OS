@@ -35,8 +35,11 @@ task.o: kernel/task.c
 isr.o: kernel/isr.asm
 	$(AS) $(ASF) kernel/isr.asm -o build/isr.o
 
-captainos.bin: boot.o kernel.o idt.o pic.o vga.o utils.o pit.o task.o isr.o 
-	$(LD) $(LDFLAGS) -o build/captainos.bin build/boot.o build/kernel.o build/idt.o build/pic.o build/vga.o build/utils.o build/pit.o build/task.o build/isr.o
+filesystem.o: kernel/filesystem.c
+	$(CC) $(CFLAGS) kernel/filesystem.c -o build/filesystem.o
+
+captainos.bin: boot.o kernel.o idt.o pic.o vga.o utils.o pit.o task.o isr.o filesystem.o
+	$(LD) $(LDFLAGS) -o build/captainos.bin build/boot.o build/kernel.o build/idt.o build/pic.o build/vga.o build/utils.o build/pit.o build/task.o build/isr.o build/filesystem.o
 
 captainos.iso: captainos.bin
 	mkdir -p iso/boot/grub
