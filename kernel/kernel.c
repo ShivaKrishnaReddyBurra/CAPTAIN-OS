@@ -64,7 +64,7 @@ void handle_command(void) {
         print_string("\n");
     } else if (strcmp(input_buffer, "os") == 0) {
         print_string("CAPTAIN-OS Kernel v1.1 - Multitasking Edition\n");
-        print_string("Features: Task switching, keyboard input, VGA text mode, file system\n");
+        print_string("Features: Task switching, keyboard input, VGA text mode, file system with directories\n");
         print_string("Built with x86-64 assembly and C\n");
     } else if (strcmp(input_buffer, "help") == 0) {
         print_string("Available commands:\n");
@@ -76,9 +76,11 @@ void handle_command(void) {
         print_string("  tasks     - Show running tasks info\n");
         print_string("  status    - Show system status\n");
         print_string("  test      - Run a simple test\n");
-        print_string("  ls        - List all files\n");
+        print_string("  ls [path] - List files in path (default: /)\n");
         print_string("  cat <file> - Display file contents\n");
         print_string("  write <file> <data> - Write data to a file\n");
+        print_string("  rm <path> - Delete a file or empty directory\n");
+        print_string("  mkdir <path> - Create a directory\n");
     } else if (strcmp(input_buffer, "anime") == 0) {
         print_string("    /\\_/\\  \n");
         print_string("   ( o.o ) \n");
@@ -108,7 +110,7 @@ void handle_command(void) {
         print_string("  Active tasks: 2\n");
         print_string("  Multitasking: Enabled\n");
         print_string("  Keyboard: Working\n");
-        print_string("  File system: Initialized\n");
+        print_string("  File system: Initialized with directories\n");
     } else if (strcmp(input_buffer, "test") == 0) {
         print_string("Running system test...\n");
         print_string("  Memory access: OK\n");
@@ -117,8 +119,9 @@ void handle_command(void) {
         print_string("  Keyboard input: OK\n");
         print_string("  File system: OK\n");
         print_string("All tests passed!\n");
-    } else if (strcmp(input_buffer, "ls") == 0) {
-        fs_list_files();
+    } else if (starts_with(input_buffer, "ls")) {
+        const char *path = input_buffer[2] == ' ' ? &input_buffer[3] : "";
+        fs_list_files(path);
     } else if (starts_with(input_buffer, "cat ")) {
         if (input_buffer[4] != '\0') {
             char buffer[512];
@@ -130,15 +133,14 @@ void handle_command(void) {
             print_string("Usage: cat <file>\n");
         }
     } else if (starts_with(input_buffer, "write ")) {
-        // Parse "write <filename> <data>"
         char *filename = &input_buffer[6];
         char *data = filename;
         while (*data && *data != ' ') data++;
         if (*data == ' ') {
-            *data = '\0'; // Null-terminate filename
-            data++; // Move to start of data
+            *data = '\0';
+            data++;
             if (*data != '\0') {
-                if (fs_create_file(filename) >= 0 || strcmp(filename, "welcome.txt") == 0) {
+                if (fs_create_file(filename) >= 0 || find_entry(filename, NULL) != -1) {
                     if (fs_write_file(filename, data, strlen(data)) >= 0) {
                         print_string("Wrote to ");
                         print_string(filename);
@@ -150,6 +152,26 @@ void handle_command(void) {
             }
         } else {
             print_string("Usage: write <file> <data>\n");
+        }
+    } else if (starts_with(input_buffer, "rm ")) {
+        if (input_buffer[3] != '\0') {
+            if (fs_delete_file(&input_buffer[3]) >= 0) {
+                print_string("Deleted ");
+                print_string(&input_buffer[3]);
+                print_string("\n");
+            }
+        } else {
+            print_string("Usage: rm <path>\n");
+        }
+    } else if (starts_with(input_buffer, "mkdir ")) {
+        if (input_buffer[6] != '\0') {
+            if (fs_create_directory(&input_buffer[6]) >= 0) {
+                print_string("Created directory ");
+                print_string(&input_buffer[6]);
+                print_string("\n");
+            }
+        } else {
+            print_string("Usage: mkdir <path>\n");
         }
     } else {
         print_string("Unknown command: '");
@@ -174,7 +196,7 @@ void shell_task(void) {
         print_string("========================================\n");
         print_string("    Welcome to CAPTAIN-OS v1.1!       \n");
         print_string("========================================\n");
-        print_string("Multitasking kernel with file system support\n");
+        print_string("Multitasking kernel with file system and directories\n");
         print_string("Background task running concurrently\n");
         print_string("Type 'help' for available commands\n");
         print_string("========================================\n");

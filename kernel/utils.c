@@ -43,3 +43,12 @@ size_t strlen(const char *str) {
     }
     return len;
 }
+
+char *strcpy(char *dest, const char *src) {
+    char *original_dest = dest;
+    while (*src != '\0') {
+        *dest++ = *src++;
+    }
+    *dest = '\0'; // Null-terminate the destination
+    return original_dest;
+}
