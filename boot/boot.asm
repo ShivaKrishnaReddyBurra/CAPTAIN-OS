@@ -6,23 +6,12 @@ multiboot2_header_start:
     dd multiboot2_header_end - multiboot2_header_start ; Header length
     dd -(0xE85250D6 + 0 + (multiboot2_header_end - multiboot2_header_start)) ; Checksum
 
-    ; Framebuffer tag - request graphics mode
-    ; align 8
-    ; dw 5                     ; Type: Framebuffer tag
-    ; dw 0                     ; Flags: 0 (required)
-    ; dd 20                    ; Size of this tag
-    ; dd 800                  ; Width
-    ; dd 600                   ; Height  
-    ; dd 32                    ; Depth (bits per pixel)
-
-    ; Information request tag
-    align 8
+    ; Optional tags (e.g., request information tag)
     dw 1                     ; Type: Information request
     dw 0                     ; Flags: 0 (optional)
     dd 8                     ; Size of this tag
 
     ; End tag (required)
-    align 8
     dw 0                     ; Type: 0 (end tag)
     dw 0                     ; Flags: 0
     dd 8                     ; Size of end tag
@@ -86,7 +75,6 @@ higher_half:
 
     call kernel_main             ; Call kernel
     hlt                          ; Halt CPU if kernel returns
-
 section .data
 align 16
 gdt:
@@ -110,10 +98,8 @@ pdpt:
     dq pdt + 0x07                ; Present, Read/Write
     times 511 dq 0
 pdt:
-    dq 0x0000000000000087        ; Map first 2MB
-    dq 0x0000000020000087        ; Map next 2MB
-    ; Add more entries for 1GB (512 entries * 2MB = 1GB)
-    times 510 dq 0
+    dq 0x0000000000000087        ; Map first 2MB: Present, Read/Write, Page Size (2MB)
+    times 511 dq 0
 
 gdt_end:
 

@@ -8,8 +8,11 @@
 
 extern uint8_t cursor_row;
 extern uint8_t cursor_col;
+extern int vga_lock;
 
 void print_char(char c, uint8_t row, uint8_t col);
 void print_string(const char *str);
+void scroll_screen(void);
+void clear_screen_proper(void);
 
 #endif
