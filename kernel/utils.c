@@ -52,3 +52,37 @@ char *strcpy(char *dest, const char *src) {
     *dest = '\0'; // Null-terminate the destination
     return original_dest;
 }
+
+int strcmp(const char *str1, const char *str2) {
+    if (!str1 || !str2) return -1;
+    while (*str1 && (*str1 == *str2)) {
+        str1++;
+        str2++;
+    }
+    return *str1 - *str2;
+}
+
+int starts_with(const char *str, const char *prefix) {
+    if (!str || !prefix) return 0;
+    while (*prefix) {
+        if (*str != *prefix) return 0;
+        str++;
+        prefix++;
+    }
+    return 1;
+}
+
+int string_length(const char *str) {
+    if (!str) return 0;
+    int len = 0;
+    while (str[len] && len < 1000) len++;
+    return len;
+}
+
+void string_copy(char *dest, const char *src, int max_input) {
+    if (!dest || !src) return;
+    while (*src && dest - dest < max_input - 1) {
+        *dest++ = *src++;
+    }
+    *dest = '\0';
+}

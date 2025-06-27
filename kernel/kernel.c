@@ -26,75 +26,9 @@ void task_yield(void);
 void task_sleep(uint32_t ticks);
 void start_multitasking(void);
 
-// Enhanced string utilities
-int strcmp(const char *str1, const char *str2) {
-    if (!str1 || !str2) return -1;
-    while (*str1 && (*str1 == *str2)) {
-        str1++;
-        str2++;
-    }
-    return *str1 - *str2;
-}
-
-int starts_with(const char *str, const char *prefix) {
-    if (!str || !prefix) return 0;
-    while (*prefix) {
-        if (*str != *prefix) return 0;
-        str++;
-        prefix++;
-    }
-    return 1;
-}
-
-int string_length(const char *str) {
-    if (!str) return 0;
-    int len = 0;
-    while (str[len] && len < 1000) len++;
-    return len;
-}
-
-void string_copy(char *dest, const char *src) {
-    if (!dest || !src) return;
-    while (*src && dest - dest < MAX_INPUT - 1) {
-        *dest++ = *src++;
-    }
-    *dest = '\0';
-}
 
 // Path utilities
-void normalize_path(const char *path, char *result) {
-    if (!path || !result) return;
-    
-    if (path[0] != '/') {
-        // Relative path - combine with current directory
-        string_copy(result, current_directory);
-        if (result[string_length(result) - 1] != '/' && path[0] != '\0') {
-            int len = string_length(result);
-            if (len < 255) {
-                result[len] = '/';
-                result[len + 1] = '\0';
-            }
-        }
-        
-        // Append relative path
-        int result_len = string_length(result);
-        int path_len = string_length(path);
-        if (result_len + path_len < 255) {
-            for (int i = 0; i < path_len; i++) {
-                result[result_len + i] = path[i];
-            }
-            result[result_len + path_len] = '\0';
-        }
-    } else {
-        string_copy(result, path);
-    }
-    
-    // Remove trailing slash unless it's root
-    int len = string_length(result);
-    if (len > 1 && result[len - 1] == '/') {
-        result[len - 1] = '\0';
-    }
-}
+
 
 // Command parsing
 int parse_command(const char *input, char args[MAX_ARGS][MAX_INPUT]) {
@@ -157,7 +91,7 @@ void add_to_history(const char *command) {
         return;
     }
     
-    string_copy(command_history[history_pos], command);
+    string_copy(command_history[history_pos], command, MAX_INPUT);
     history_pos = (history_pos + 1) % MAX_HISTORY;
     if (history_count < MAX_HISTORY) {
         history_count++;
@@ -205,13 +139,13 @@ void cmd_help(void) {
 
 void cmd_cd(char args[MAX_ARGS][MAX_INPUT], int argc) {
     if (argc < 2) {
-        string_copy(current_directory, "/");
+        string_copy(current_directory, "/", MAX_INPUT);
         print_string("Changed to root directory\n");
         return;
     }
     
     char new_path[256];
-    normalize_path(args[1], new_path);
+    normalize_path(args[1], new_path, current_directory, MAX_INPUT);
     
     int parent_index;
     int dir_index = find_entry(new_path, &parent_index);
@@ -228,9 +162,9 @@ void cmd_cd(char args[MAX_ARGS][MAX_INPUT], int argc) {
     fs_get_stats(&stats);
     // We need to verify it's a directory through the filesystem
     
-    string_copy(current_directory, new_path);
+    string_copy(current_directory, new_path, MAX_INPUT);
     if (current_directory[0] == '\0') {
-        string_copy(current_directory, "/");
+        string_copy(current_directory, "/", MAX_INPUT);
     }
     
     print_string("Changed directory to: ");
@@ -271,7 +205,7 @@ void cmd_touch(char args[MAX_ARGS][MAX_INPUT], int argc) {
     }
     
     char full_path[256];
-    normalize_path(args[1], full_path);
+    normalize_path(args[1], full_path, current_directory, MAX_INPUT);
     
     if (fs_create_file(full_path) == 0) {
         print_string("Created file: ");
@@ -291,8 +225,8 @@ void cmd_cp(char args[MAX_ARGS][MAX_INPUT], int argc) {
     }
     
     char src_path[256], dst_path[256];
-    normalize_path(args[1], src_path);
-    normalize_path(args[2], dst_path);
+    normalize_path(args[1], src_path, current_directory, MAX_INPUT);
+    normalize_path(args[2], dst_path, current_directory, MAX_INPUT);
     
     char buffer[1024];
     int bytes_read = fs_read_file(src_path, buffer, sizeof(buffer) - 1);
@@ -502,9 +436,9 @@ void handle_command(void) {
     } else if (strcmp(args[0], "ls") == 0) {
         char path[256];
         if (argc > 1) {
-            normalize_path(args[1], path);
+            normalize_path(args[1], path, current_directory, MAX_INPUT);
         } else {
-            string_copy(path, current_directory);
+            string_copy(path, current_directory, MAX_INPUT);
         }
         fs_list_files(path);
     } else if (strcmp(args[0], "cat") == 0) {
@@ -512,7 +446,7 @@ void handle_command(void) {
             print_string("Usage: cat <filename>\n");
         } else {
             char full_path[256];
-            normalize_path(args[1], full_path);
+            normalize_path(args[1], full_path, current_directory, MAX_INPUT);
             char buffer[1024];
             if (fs_read_file(full_path, buffer, sizeof(buffer)) >= 0) {
                 print_string(buffer);
@@ -528,7 +462,7 @@ void handle_command(void) {
             print_string("Usage: write <filename> <data>\n");
         } else {
             char full_path[256];
-            normalize_path(args[1], full_path);
+            normalize_path(args[1], full_path, current_directory, MAX_INPUT);
             
             // Combine all arguments after filename as data
             char data[512] = "";
@@ -571,7 +505,7 @@ void handle_command(void) {
             print_string("Usage: rm <path>\n");
         } else {
             char full_path[256];
-            normalize_path(args[1], full_path);
+            normalize_path(args[1], full_path, current_directory, MAX_INPUT);
             if (fs_delete_file(full_path) >= 0) {
                 print_string("Deleted ");
                 print_string(args[1]);
@@ -587,7 +521,7 @@ void handle_command(void) {
             print_string("Usage: mkdir <directory>\n");
         } else {
             char full_path[256];
-            normalize_path(args[1], full_path);
+            normalize_path(args[1], full_path, current_directory, MAX_INPUT);
             if (fs_create_directory(full_path) >= 0) {
                 print_string("Created directory ");
                 print_string(args[1]);
