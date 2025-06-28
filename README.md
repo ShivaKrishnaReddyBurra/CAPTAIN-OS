@@ -105,5 +105,5 @@ To build and run CAPTAIN-OS, you’ll need the following tools installed on a Li
 
 - **Multiboot2 Specification**: For providing a standard way to boot the kernel via GRUB.
 - **OSDev Wiki**: A valuable resource for OS development tutorials and documentation.
-- **QEMU and GRUB**: Essential tools for testing and booting the kernel.
+- **QEMU and GRUB**: Essential tools for testing and booting the kernel. .
 
